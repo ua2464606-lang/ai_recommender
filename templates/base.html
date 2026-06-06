@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}NeuralFind - AI Recommendation Engine{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+
+<nav class="navbar navbar-expand-lg navbar-dark glass-nav sticky-top">
+  <div class="container-xl">
+    <a class="navbar-brand brand-logo" href="/">
+      <span class="brand-icon"><i class="bi bi-stars"></i></span>
+      <span class="brand-text">Neural<span class="brand-accent">Find</span></span>
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto gap-1 align-items-center">
+        <li class="nav-item"><a class="nav-link nav-pill {% if request.path == '/' %}active{% endif %}" href="/"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link nav-pill {% if '/favorites' in request.path %}active{% endif %}" href="/favorites"><i class="bi bi-heart me-1"></i>Favorites</a></li>
+        <li class="nav-item"><a class="nav-link nav-pill {% if '/history' in request.path %}active{% endif %}" href="/history"><i class="bi bi-clock-history me-1"></i>History</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+{% block content %}{% endblock %}
+
+<footer class="footer-bar mt-auto py-4">
+  <div class="container-xl text-center">
+    <p class="mb-0 text-muted small">
+      <span class="text-accent"><i class="bi bi-stars me-1"></i>NeuralFind</span> - Universal AI Recommendation Engine &middot; Built with Flask + FAISS + TF-IDF
+    </p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

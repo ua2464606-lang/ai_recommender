@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}NeuralFind - AI Recommendation Engine{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="container-xl">
+    <div class="hero-inner text-center">
+      <div class="hero-badge mb-3">
+        <span class="pulse-dot"></span>
+        AI-Powered Semantic Search
+      </div>
+      <h1 class="hero-title">Discover What You'll<br><span class="gradient-text">Love Next</span></h1>
+      <p class="hero-subtitle">Ask anything in plain English. Get instant recommendations for movies, games, books, courses, and tools.</p>
+
+      <div class="search-wrapper mx-auto">
+        <div class="search-box" id="searchBox">
+          <div class="search-icon-wrap"><i class="bi bi-search"></i></div>
+          <input type="text" id="searchInput" class="search-input" placeholder='Try: "I want to learn machine learning"...' autocomplete="off" />
+          <button class="search-btn" id="searchBtn" onclick="doSearch()" aria-label="Search">
+            <i class="bi bi-arrow-right-circle-fill"></i>
+          </button>
+        </div>
+
+        <div class="category-pills mt-3" id="categoryPills">
+          {% set cats = [("All","bi-stars"),("Movies","bi-film"),("Games","bi-controller"),("Courses","bi-mortarboard"),("Books","bi-book"),("Software","bi-tools")] %}
+          {% for cat, icon in cats %}
+          <button class="cat-pill {% if loop.first %}active{% endif %}" data-cat="{{ cat }}" onclick="setCategory(this)">
+            <i class="bi {{ icon }}"></i> {{ cat }}
+            {% if cat != 'All' and category_counts.get(cat) %}
+            <span class="cat-count">{{ category_counts.get(cat,0) }}</span>
+            {% endif %}
+          </button>
+          {% endfor %}
+        </div>
+
+        <div class="mt-2 d-flex justify-content-center align-items-center gap-2">
+          <span class="text-muted small">Show</span>
+          <select id="topKSelect" class="form-select form-select-sm top-k-select">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+          </select>
+          <span class="text-muted small">results</span>
+        </div>
+      </div>
+
+      <div class="trending-section mt-4">
+        <p class="trending-label"><i class="bi bi-fire me-1 text-warning"></i>Trending Searches</p>
+        <div class="trending-chips" id="trendingChips">
+          {% for t in trending[:8] %}
+          <button class="trend-chip" onclick='quickSearch({{ t|tojson }})'>{{ t }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="results-section container-xl" id="resultsSection" style="display:none;">
+  <div class="results-header">
+    <div>
+      <h2 class="results-title">Results for <span id="resultsQuery" class="text-accent"></span></h2>
+      <p class="results-meta" id="resultsMeta"></p>
+    </div>
+    <button class="btn-clear" onclick="clearResults()"><i class="bi bi-x-lg me-1"></i>Clear</button>
+  </div>
+  <div class="results-grid" id="resultsGrid"></div>
+</section>
+
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+  <div class="loading-card">
+    <div class="neural-spinner">
+      <div class="ns-ring ns-r1"></div>
+      <div class="ns-ring ns-r2"></div>
+      <div class="ns-ring ns-r3"></div>
+      <div class="ns-core"><i class="bi bi-stars"></i></div>
+    </div>
+    <p class="loading-text">Analyzing your query...</p>
+  </div>
+</div>
+
+<section class="stats-section container-xl mt-5">
+  <div class="stats-grid">
+    {% set stat_items = [
+      ("bi-collection","89+","Total Items"),
+      ("bi-grid-3x3-gap","5","Categories"),
+      ("bi-lightning-charge","~1ms","Search Speed"),
+      ("bi-cpu","FAISS","Vector Index")
+    ] %}
+    {% for icon, val, label in stat_items %}
+    <div class="stat-card">
+      <i class="bi {{ icon }} stat-icon"></i>
+      <div class="stat-val">{{ val }}</div>
+      <div class="stat-label">{{ label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if recent %}
+<section class="container-xl mt-5">
+  <h3 class="section-heading"><i class="bi bi-clock-history me-2 text-accent"></i>Recently Viewed</h3>
+  <div class="recent-list">
+    {% for r in recent %}
+    <a href="{{ r.url }}" target="_blank" rel="noopener" class="recent-item" onclick='trackView({{ r.title|tojson }}, {{ r.category|tojson }}, {{ r.url|tojson }})'>
+      <span class="recent-cat-badge"><i class="bi {{ icons.get(r.category, 'bi-pin-angle') }}"></i> {{ r.category }}</span>
+      <span class="recent-title">{{ r.title }}</span>
+      <i class="bi bi-arrow-up-right ms-auto"></i>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="how-section container-xl mt-6 mb-5">
+  <h3 class="section-heading text-center mb-4"><i class="bi bi-diagram-3 me-2 text-accent"></i>How It Works</h3>
+  <div class="how-grid">
+    {% set steps = [
+      ("bi-keyboard","1. Type a Query","Describe what you're looking for in plain English - no special syntax needed."),
+      ("bi-cpu","2. Semantic Search","Your query is vectorized and matched against the catalog using FAISS cosine similarity."),
+      ("bi-bar-chart-steps","3. Ranked Results","Items are ranked by relevance score. Filter by category to narrow down results."),
+      ("bi-heart","4. Save & Explore","Favorite items, revisit history, and discover through trending searches.")
+    ] %}
+    {% for icon, title, desc in steps %}
+    <div class="how-card">
+      <div class="how-icon"><i class="bi {{ icon }}"></i></div>
+      <h5 class="how-title">{{ title }}</h5>
+      <p class="how-desc">{{ desc }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;">
+  <div id="mainToast" class="toast align-items-center glass-toast border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastBody">Done!</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const FAV_KEY = 'nf_favs';
+let currentCategory = 'All';
+
+function setCategory(el) {
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  currentCategory = el.dataset.cat;
+}
+
+function quickSearch(q) {
+  document.getElementById('searchInput').value = q;
+  doSearch();
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  const topK = parseInt(document.getElementById('topKSelect').value, 10);
+
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('resultsSection').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/recommend', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: q, top_k: topK, category: currentCategory})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed');
+    renderResults(data, q);
+  } catch (e) {
+    showToast(e.message || 'Search failed. Please try again.');
+  } finally {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
+
+function renderResults(data, query) {
+  const section = document.getElementById('resultsSection');
+  const grid = document.getElementById('resultsGrid');
+  document.getElementById('resultsQuery').textContent = `"${query}"`;
+  document.getElementById('resultsMeta').textContent = `${data.total} results found - Category: ${currentCategory}`;
+  section.style.display = 'block';
+
+  if (!data.results || data.results.length === 0) {
+    grid.innerHTML = '<div class="no-results"><i class="bi bi-search display-3 text-muted"></i><p class="mt-3 text-muted">No results found. Try a different query or category.</p></div>';
+    section.scrollIntoView({behavior: 'smooth', block: 'start'});
+    return;
+  }
+
+  const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+  grid.innerHTML = data.results.map((item, i) => buildCard(item, i, favs)).join('');
+  document.querySelectorAll('.rec-card').forEach((card, i) => {
+    card.style.animationDelay = `${i * 60}ms`;
+  });
+  document.dispatchEvent(new Event('resultsRendered'));
+  section.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function buildCard(item, i, favs) {
+  const isFav = favs.includes(item.title);
+  const score = Math.min(100, item.match_score || 0);
+  const scoreColor = score >= 70 ? '#22d3ee' : score >= 40 ? '#a78bfa' : '#94a3b8';
+  const catIcon = {
+    Movies: 'bi-film',
+    Games: 'bi-controller',
+    Courses: 'bi-mortarboard',
+    Books: 'bi-book',
+    Software: 'bi-tools'
+  }[item.category] || 'bi-pin-angle';
+  const itemPayload = escAttr(JSON.stringify(item));
+
+  return `
+  <div class="rec-card fade-in-up" data-title="${escAttr(item.title)}">
+    <div class="card-header-row">
+      <span class="card-cat-badge"><i class="bi ${catIcon}"></i> ${escHtml(item.category)}</span>
+      <button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(this, JSON.parse(this.dataset.item))" data-item="${itemPayload}" title="Favorite">
+        <i class="bi ${isFav ? 'bi-heart-fill' : 'bi-heart'}"></i>
+      </button>
+    </div>
+    <h4 class="card-title-text">${escHtml(item.title)}</h4>
+    <p class="card-desc">${escHtml(item.description)}</p>
+    <div class="card-tags">
+      ${(item.tags || '').split(/\s+/).filter(Boolean).slice(0, 4).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('')}
+    </div>
+    <div class="score-section">
+      <div class="score-label">
+        <span>Match Score</span>
+        <span class="score-value" style="color:${scoreColor}">${score}%</span>
+      </div>
+      <div class="score-bar-bg">
+        <div class="score-bar-fill" style="width:${score}%; background:${scoreColor};"></div>
+      </div>
+    </div>
+    <a href="${escAttr(item.url)}" target="_blank" rel="noopener" class="card-link-btn" onclick="trackView(${JSON.stringify(item.title)}, ${JSON.stringify(item.category)}, ${JSON.stringify(item.url)})">
+      <i class="bi bi-box-arrow-up-right me-1"></i> Open Link
+    </a>
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escAttr(s) {
+  return escHtml(s).replace(/`/g, '&#96;');
+}
+
+async function toggleFav(btn, item) {
+  const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+  const idx = favs.indexOf(item.title);
+  if (idx > -1) {
+    favs.splice(idx, 1);
+    btn.classList.remove('active');
+    btn.innerHTML = '<i class="bi bi-heart"></i>';
+    showToast('Removed from favorites');
+  } else {
+    favs.push(item.title);
+    btn.classList.add('active');
+    btn.innerHTML = '<i class="bi bi-heart-fill"></i>';
+    showToast('Added to favorites');
+  }
+  localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+
+  await fetch('/api/favorite', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(item)
+  });
+}
+
+function trackView(title, category, url) {
+  fetch('/api/viewed', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title, category, url})
+  });
+}
+
+function clearResults() {
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('searchInput').value = '';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('mainToast');
+  const body = document.getElementById('toastBody');
+  body.textContent = msg;
+  new bootstrap.Toast(toast, {delay: 2500}).show();
+}
+
+document.getElementById('searchInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+fetch('/api/trending').then(r => r.json()).then(data => {
+  if (data && data.length > 0 && data[0].count > 0) {
+    const chips = document.getElementById('trendingChips');
+    chips.innerHTML = data.map(d => `<button class="trend-chip" onclick="quickSearch(${escAttr(JSON.stringify(d.query))})">${escHtml(d.query)}</button>`).join('');
+  }
+});
+</script>
+{% endblock %}

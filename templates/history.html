@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Search History - NeuralFind{% endblock %}
+
+{% block content %}
+<div class="container-xl py-5">
+  <div class="page-header mb-5">
+    <h1 class="page-title"><i class="bi bi-clock-history text-accent me-3"></i>Search History</h1>
+    <p class="page-subtitle">Your recent queries in this session</p>
+  </div>
+
+  {% if searches %}
+  <div class="history-list">
+    {% for s in searches %}
+    <div class="history-item fade-in-up" style="animation-delay:{{ loop.index0 * 40 }}ms">
+      <div class="history-icon">
+        {% if s.category_filter == 'Movies' %}<i class="bi bi-film"></i>
+        {% elif s.category_filter == 'Games' %}<i class="bi bi-controller"></i>
+        {% elif s.category_filter == 'Courses' %}<i class="bi bi-mortarboard"></i>
+        {% elif s.category_filter == 'Books' %}<i class="bi bi-book"></i>
+        {% elif s.category_filter == 'Software' %}<i class="bi bi-tools"></i>
+        {% else %}<i class="bi bi-search"></i>{% endif %}
+      </div>
+      <div class="history-content">
+        <div class="history-query">{{ s.search_text }}</div>
+        <div class="history-meta">
+          <span class="badge-pill-small">{{ s.category_filter }}</span>
+          <span class="text-muted">&middot; {{ s.result_count }} results</span>
+          <span class="text-muted">&middot; {{ s.created_at.strftime('%b %d, %H:%M') }}</span>
+        </div>
+      </div>
+      <button class="replay-btn" onclick='replaySearch({{ s.search_text|tojson }})' aria-label="Replay search">
+        <i class="bi bi-arrow-repeat"></i>
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state text-center py-5">
+    <div class="empty-icon"><i class="bi bi-search"></i></div>
+    <h3 class="mt-3 text-white">No history yet</h3>
+    <p class="text-muted">Your searches will appear here.</p>
+    <a href="/" class="btn-primary-pill mt-3">Start Searching</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function replaySearch(query) {
+  window.location.href = '/?q=' + encodeURIComponent(query);
+}
+</script>
+{% endblock %}
